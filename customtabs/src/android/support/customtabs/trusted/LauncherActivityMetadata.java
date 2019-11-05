@@ -58,6 +58,8 @@ public class LauncherActivityMetadata {
     private static final String METADATA_FILE_PROVIDER_AUTHORITY =
             "android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY";
 
+    private static final String METADATA_INITIAL_WEB_BUNDLE =
+            "android.support.customtabs.trusted.INITIAL_WEB_BUNDLE";
 
     private final static int DEFAULT_COLOR_ID = android.R.color.white;
 
@@ -68,6 +70,7 @@ public class LauncherActivityMetadata {
     public final int splashScreenBackgroundColorId;
     @Nullable public final String fileProviderAuthority;
     public final int splashScreenFadeOutDurationMillis;
+    @Nullable public final String initialWebBundle;
 
     private LauncherActivityMetadata(@NonNull Bundle metaData) {
         defaultUrl = metaData.getString(METADATA_DEFAULT_URL);
@@ -79,6 +82,7 @@ public class LauncherActivityMetadata {
         fileProviderAuthority = metaData.getString(METADATA_FILE_PROVIDER_AUTHORITY);
         splashScreenFadeOutDurationMillis =
                 metaData.getInt(METADATA_SPLASH_SCREEN_FADE_OUT_DURATION, 0);
+        initialWebBundle = metaData.getString(METADATA_INITIAL_WEB_BUNDLE);
     }
 
     /**

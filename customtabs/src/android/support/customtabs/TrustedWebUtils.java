@@ -130,6 +130,11 @@ public class TrustedWebUtils {
     public static final String EXTRA_ADDITIONAL_TRUSTED_ORIGINS =
             "android.support.customtabs.extra.ADDITIONAL_TRUSTED_ORIGINS";
 
+
+    public static final String EXTRA_INITIAL_WEB_BUNDLE =
+            "android.support.customtabs.extra.INITIAL_WEB_BUNDLE";
+
+
     /**
      * @see #launchBrowserSiteSettings
      */
@@ -214,6 +219,14 @@ public class TrustedWebUtils {
          * - {@link SplashScreenParamKey#FADE_OUT_DURATION_MS}.
          */
         String V1 = "androidx.browser.trusted.category.TrustedWebActivitySplashScreensV1";
+    }
+
+    @StringDef({WebBundlesVersion.V1})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface WebBundlesVersion {
+        /**
+         */
+        String V1 = "androidx.browser.trusted.category.TrustedWebActivityWebBundlesV1";
     }
 
     private TrustedWebUtils() {}
@@ -307,6 +320,20 @@ public class TrustedWebUtils {
         if (resolveInfo == null || resolveInfo.filter == null) return false;
         return resolveInfo.filter.hasCategory(version);
     }
+
+
+    public static boolean webBundlesAreSupported(Context context, String packageName,
+                                                @WebBundlesVersion String version) {
+        Intent serviceIntent = new Intent()
+                .setAction(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION)
+                .setPackage(packageName);
+        ResolveInfo resolveInfo =
+                context.getPackageManager().resolveService(serviceIntent,
+                        PackageManager.GET_RESOLVED_FILTER);
+        if (resolveInfo == null || resolveInfo.filter == null) return false;
+        return resolveInfo.filter.hasCategory(version);
+    }
+
 
     /**
      * Transfers the splash image to a Custom Tabs provider. The reading and decoding of the image

@@ -28,6 +28,8 @@ public class TrustedWebActivityIntentBuilder {
     @Nullable
     private Bundle mSplashScreenParams;
 
+    private Uri mInitialWebBundleUri;
+
     /**
      * Creates a Builder given the required parameters.
      * @param uri The web page to launch as Trusted Web Activity.
@@ -83,6 +85,12 @@ public class TrustedWebActivityIntentBuilder {
     public TrustedWebActivityIntentBuilder setColorSchemeParams(int colorScheme,
             @NonNull CustomTabColorSchemeParams params) {
         mIntentBuilder.setColorSchemeParams(colorScheme, params);
+        return this;
+    }
+
+    @NonNull
+    public TrustedWebActivityIntentBuilder setInitialWebBundleUri(Uri initialWebBundleUri) {
+        mInitialWebBundleUri = initialWebBundleUri;
         return this;
     }
 
@@ -144,6 +152,9 @@ public class TrustedWebActivityIntentBuilder {
         if (mAdditionalTrustedOrigins != null) {
             intent.putExtra(TrustedWebUtils.EXTRA_ADDITIONAL_TRUSTED_ORIGINS,
                     new ArrayList<>(mAdditionalTrustedOrigins));
+        }
+        if (mInitialWebBundleUri != null) {
+            intent.putExtra(TrustedWebUtils.EXTRA_INITIAL_WEB_BUNDLE, mInitialWebBundleUri.toString());
         }
 
         if (mSplashScreenParams != null) {

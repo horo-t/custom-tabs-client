@@ -129,9 +129,8 @@ public class LauncherActivity extends AppCompatActivity {
                         .setToolbarColor(getColorCompat(mMetadata.statusBarColorId))
                         .setNavigationBarColor(getColorCompat(mMetadata.navigationBarColorId));
 
-
         mTwaLauncher = new TwaLauncher(this);
-        mTwaLauncher.launch(twaBuilder, mSplashScreenStrategy, () -> mBrowserWasLaunched = true);
+        mTwaLauncher.launch(twaBuilder, mSplashScreenStrategy, mMetadata.initialWebBundle, mMetadata.fileProviderAuthority,() -> mBrowserWasLaunched = true);
 
         if (!sChromeVersionChecked) {
             TrustedWebUtils.promptForChromeUpdateIfNeeded(this, mTwaLauncher.getProviderPackage());

@@ -26,6 +26,7 @@ import android.support.customtabs.CustomTabsSession;
 import android.support.customtabs.TrustedWebUtils;
 import android.support.customtabs.trusted.TwaProviderPicker.LaunchMode;
 import android.support.customtabs.trusted.splashscreens.SplashScreenStrategy;
+import android.support.customtabs.trusted.webbundles.WebBundlesTransferTask;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
@@ -55,6 +56,13 @@ public class TwaLauncher {
     private CustomTabsSession mSession;
 
     private boolean mDestroyed;
+
+
+    private boolean mTransferingWebBundles = false;
+    private boolean mWaitingForSplashScreen = false;
+
+    private WebBundlesTransferTask mWebBundlesTransferTask;
+
 
     /**
      * Creates an instance that will automatically choose the browser to launch a TWA in.
@@ -99,7 +107,7 @@ public class TwaLauncher {
      * @param url Url to open.
      */
     public void launch(Uri url) {
-        launch(new TrustedWebActivityIntentBuilder(url), null, null);
+        launch(new TrustedWebActivityIntentBuilder(url), null, null, null, null);
     }
 
     /**
@@ -109,17 +117,20 @@ public class TwaLauncher {
      * optional parameters: status bar color, additional trusted origins, etc.
      * @param splashScreenStrategy {@link SplashScreenStrategy} to use for showing splash screens,
      * null if splash screen not needed.
+     * @param initialWebBundle initial web bundle file name in assets directory.
      * @param completionCallback Callback triggered when the url has been opened.
      */
     public void launch(TrustedWebActivityIntentBuilder twaBuilder,
             @Nullable SplashScreenStrategy splashScreenStrategy,
+            @Nullable String initialWebBundle,
+            @Nullable String fileProviderAuthority,
             @Nullable Runnable completionCallback) {
         if (mDestroyed) {
             throw new IllegalStateException("TwaLauncher already destroyed");
         }
 
         if (mLaunchMode == LaunchMode.TRUSTED_WEB_ACTIVITY) {
-            launchTwa(twaBuilder, splashScreenStrategy, completionCallback);
+            launchTwa(twaBuilder, splashScreenStrategy, initialWebBundle,fileProviderAuthority, completionCallback);
         } else {
             launchCct(twaBuilder, completionCallback);
         }
@@ -141,13 +152,15 @@ public class TwaLauncher {
 
     private void launchTwa(TrustedWebActivityIntentBuilder twaBuilder,
             @Nullable SplashScreenStrategy splashScreenStrategy,
+            @Nullable String initialWebBundle,
+            @Nullable String fileProviderAuthority,
             @Nullable Runnable completionCallback) {
         if (splashScreenStrategy != null) {
             splashScreenStrategy.onTwaLaunchInitiated(mProviderPackage, twaBuilder);
         }
 
         Runnable onSessionCreatedRunnable = () ->
-                launchWhenSessionEstablished(twaBuilder, splashScreenStrategy, completionCallback);
+                launchWhenSessionEstablished(twaBuilder, splashScreenStrategy, initialWebBundle, fileProviderAuthority, completionCallback);
 
         if (mSession != null) {
             onSessionCreatedRunnable.run();
@@ -174,12 +187,27 @@ public class TwaLauncher {
 
     private void launchWhenSessionEstablished(TrustedWebActivityIntentBuilder twaBuilder,
             @Nullable SplashScreenStrategy splashScreenStrategy,
+            @Nullable String initialWebBundle,
+            @Nullable String fileProviderAuthority,
             @Nullable Runnable completionCallback) {
         if (mSession == null) {
             throw new IllegalStateException("mSession is null in launchWhenSessionEstablished");
         }
+        boolean webBundlesSupported = TrustedWebUtils.webBundlesAreSupported(mContext,
+                mProviderPackage, TrustedWebUtils.WebBundlesVersion.V1);
+
+        if (initialWebBundle != null && webBundlesSupported && fileProviderAuthority != null) {
+            mTransferingWebBundles = true;
+            mWebBundlesTransferTask = new WebBundlesTransferTask(mContext,
+                    initialWebBundle, fileProviderAuthority, mSession,
+                    mProviderPackage);
+            mWebBundlesTransferTask.execute(
+                    initialWebBundleUri -> initialWebBundlesTransfered(initialWebBundleUri, twaBuilder, completionCallback));
+        }
+
 
         if (splashScreenStrategy != null) {
+            mWaitingForSplashScreen = true;
             splashScreenStrategy.configureTwaBuilder(twaBuilder, mSession,
                     () -> launchWhenSplashScreenReady(twaBuilder, completionCallback));
         } else {
@@ -187,8 +215,29 @@ public class TwaLauncher {
         }
     }
 
+    private void initialWebBundlesTransfered(Uri initialWebBundleUri,
+                                             TrustedWebActivityIntentBuilder builder,
+                                             @Nullable Runnable completionCallback) {
+        if (initialWebBundleUri != null) {
+            builder.setInitialWebBundleUri(initialWebBundleUri);
+        }
+        mWebBundlesTransferTask = null;
+        mTransferingWebBundles = false;
+        if (!mTransferingWebBundles && !mWaitingForSplashScreen) {
+            launchImpl(builder, completionCallback);
+        }
+    }
+
     private void launchWhenSplashScreenReady(TrustedWebActivityIntentBuilder builder,
             @Nullable Runnable completionCallback) {
+        mWaitingForSplashScreen = false;
+        if (!mTransferingWebBundles && !mWaitingForSplashScreen) {
+            launchImpl(builder, completionCallback);
+        }
+    }
+
+    private void launchImpl(TrustedWebActivityIntentBuilder builder,
+                            @Nullable Runnable completionCallback) {
         Log.d(TAG, "Launching Trusted Web Activity.");
         Intent intent = builder.build(mSession);
         ContextCompat.startActivity(mContext, intent, null);
@@ -204,6 +253,9 @@ public class TwaLauncher {
      * Performs clean-up.
      */
     public void destroy() {
+        if (mWebBundlesTransferTask != null) {
+            mWebBundlesTransferTask.cancel();
+        }
         if (mServiceConnection != null) {
             mContext.unbindService(mServiceConnection);
         }
